@@ -14,6 +14,16 @@ function getLastCommitHash() {
   }
 }
 
+function getCommitMessage(commit) {
+  try {
+    // %B prints the raw body (subject + body) of the commit message
+    return execSync(`git log -1 --format=%B ${commit}`, { encoding: 'utf8' }).trim()
+  } catch (error) {
+    console.error('Error getting commit message:', error.message)
+    process.exit(1)
+  }
+}
+
 function getCommitDiff(commit) {
   try {
     // Use stable diff flags to avoid color codes, use patience algorithm,
@@ -39,9 +49,19 @@ function getCommitDiff(commit) {
   }
 }
 
-function generateHtml(commit, diffOutput) {
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function generateHtml(commit, commitMessage, diffOutput) {
   // Escape the diff output for use in JavaScript string
   const escapedDiff = diffOutput.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+  const escapedMessage = escapeHtml(commitMessage)
 
   return `
 <!DOCTYPE html>
@@ -60,6 +80,14 @@ function generateHtml(commit, diffOutput) {
     h1 {
       color: #333;
     }
+    .commit-meta {
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-top: 8px;
+      white-space: pre-wrap; /* preserve newlines in message */
+    }
     #diff-container {
       margin-top: 20px;
     }
@@ -67,6 +95,7 @@ function generateHtml(commit, diffOutput) {
 </head>
 <body>
   <h1>Changes in Commit ${commit}</h1>
+  <div class="commit-meta" id="commit-message">${escapedMessage || 'No commit message'}</div>
   <div id="diff-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
@@ -102,8 +131,9 @@ function main() {
   const commit = process.argv[2] || getLastCommitHash()
   console.log(`Generating diff for commit: ${commit}`)
 
+  const commitMessage = getCommitMessage(commit)
   const diffOutput = getCommitDiff(commit)
-  const html = generateHtml(commit, diffOutput)
+  const html = generateHtml(commit, commitMessage, diffOutput)
 
   const outputFile = `commit-${commit}-diff.html`
   fs.writeFileSync(outputFile, html)
