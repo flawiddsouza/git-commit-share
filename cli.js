@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'child_process'
+import { JSDOM } from 'jsdom'
 
 function getLastCommitHash() {
   try {
@@ -19,7 +20,9 @@ function getLastCommitHash() {
 function getCommitMessage(commit) {
   try {
     // %B prints the raw body (subject + body) of the commit message
-    return execSync(`git log -1 --format=%B ${commit}`, { encoding: 'utf8' }).trim()
+    return execSync(`git log -1 --format=%B ${commit}`, {
+      encoding: 'utf8',
+    }).trim()
   } catch (error) {
     console.error('Error getting commit message:', error.message)
     process.exit(1)
@@ -41,7 +44,7 @@ function getCommitDiff(commit) {
       '-M', // detect renames
       '-C', // detect copies
       '--ignore-cr-at-eol',
-      commit
+      commit,
     ].join(' ')
 
     return execSync(cmd, { encoding: 'utf8' })
@@ -73,7 +76,7 @@ function readLibRequired(file) {
     console.error(
       `Missing required library: ${file} in ${libsDir}.\n` +
         `Run: npm run fetch:libs\n` +
-        `or:  node ./scripts/fetch-libs.js`
+        `or:  node ./scripts/fetch-libs.js`,
     )
     process.exit(1)
   }
@@ -88,7 +91,11 @@ function safeInline(content, kind) {
 
 function generateHtml(commit, commitMessage, diffOutput) {
   // Escape the diff output for use in JavaScript string
-  const escapedDiff = diffOutput.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+  const escapedDiff = diffOutput
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
   const escapedMessage = escapeHtml(commitMessage)
 
   // Load required local libs (must exist)
@@ -159,17 +166,61 @@ function generateHtml(commit, commitMessage, diffOutput) {
   `.trim()
 }
 
-function main() {
-  const commit = process.argv[2] || getLastCommitHash()
-  console.log(`Generating diff for commit: ${commit}`)
+// Generate a fully static HTML by executing the existing inline scripts in a headless DOM
+async function generateStaticHtml(commit, commitMessage, diffOutput) {
+  const base = generateHtml(commit, commitMessage, diffOutput)
+
+  // Create a DOM, execute inline scripts (diff2html-ui + our boot script)
+  const dom = new JSDOM(base, {
+    runScripts: 'dangerously',
+    resources: 'usable',
+    pretendToBeVisual: true,
+    url: 'https://local.example/',
+  })
+
+  // Wait until the diff has been rendered into #diff-container or timeout
+  await new Promise((resolve) => {
+    const start = Date.now()
+    function check() {
+      const el = dom.window.document.getElementById('diff-container')
+      if (el && el.children && el.children.length > 0) return resolve()
+      if (Date.now() - start > 5000) return resolve() // give up after 5s
+      setTimeout(check, 25)
+    }
+    // Also wait for load to fire once
+    dom.window.addEventListener('load', () => setTimeout(check, 10))
+    // Fallback: start polling soon in case scripts already ran
+    setTimeout(check, 20)
+  })
+
+  // Strip all scripts in-place to make it static, then serialize
+  dom.window.document.querySelectorAll('script').forEach((s) => s.remove())
+  return dom.serialize()
+}
+
+async function main() {
+  const args = process.argv.slice(2)
+  const isStatic = args.includes('--static')
+  const positional = args.filter((a) => !a.startsWith('-'))
+  const commit = positional[0] || getLastCommitHash()
+  console.log(
+    `Generating ${isStatic ? 'static ' : ''}diff for commit: ${commit}`,
+  )
 
   const commitMessage = getCommitMessage(commit)
   const diffOutput = getCommitDiff(commit)
-  const html = generateHtml(commit, commitMessage, diffOutput)
+  const html = isStatic
+    ? await generateStaticHtml(commit, commitMessage, diffOutput)
+    : generateHtml(commit, commitMessage, diffOutput)
 
   const outputFile = `commit-${commit}-diff.html`
   fs.writeFileSync(outputFile, html)
-  console.log(`Self-contained HTML file created: ${outputFile}`)
+  console.log(
+    `${isStatic ? 'Static (no JS) ' : ''}HTML file created: ${outputFile}`,
+  )
 }
 
-main()
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

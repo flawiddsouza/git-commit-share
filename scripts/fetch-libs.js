@@ -38,7 +38,7 @@ function getDiff2HtmlVersion() {
   // Try to use installed version if available; else strip ^/~ from spec.
   try {
     const installed = readJson(
-      path.join(repoRoot, 'node_modules', 'diff2html', 'package.json')
+      path.join(repoRoot, 'node_modules', 'diff2html', 'package.json'),
     )
     if (installed.version) return installed.version
   } catch {}
@@ -54,16 +54,16 @@ async function main() {
   const assets = [
     {
       url: `https://cdn.jsdelivr.net/npm/diff2html@${diff2htmlVersion}/bundles/js/diff2html-ui.min.js`,
-      out: path.join(libsDir, 'diff2html-ui.min.js')
+      out: path.join(libsDir, 'diff2html-ui.min.js'),
     },
     {
       url: `https://cdn.jsdelivr.net/npm/diff2html@${diff2htmlVersion}/bundles/css/diff2html.min.css`,
-      out: path.join(libsDir, 'diff2html.min.css')
+      out: path.join(libsDir, 'diff2html.min.css'),
     },
     {
       url: `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/${highlightVersion}/styles/github.min.css`,
-      out: path.join(libsDir, 'highlightjs-github.min.css')
-    }
+      out: path.join(libsDir, 'highlightjs-github.min.css'),
+    },
   ]
 
   console.log(`Fetching assets to ${path.relative(repoRoot, libsDir)} ...`)

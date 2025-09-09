@@ -1,15 +1,15 @@
 {
   "name": "git-commit-to-html",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Generate HTML diff for git commits",
   "main": "cli.js",
   "bin": {
     "git-commit-to-html": "cli.js"
   },
   "scripts": {
-  "format": "prettier --write .",
-  "fetch:libs": "node ./scripts/fetch-libs.js",
-  "postinstall": "node ./scripts/fetch-libs.js"
+    "format": "prettier --write .",
+    "fetch:libs": "node ./scripts/fetch-libs.js",
+    "postinstall": "node ./scripts/fetch-libs.js"
   },
   "keywords": [
     "git",
@@ -31,8 +31,7 @@
   "homepage": "https://github.com/flawiddsouza/git-commit-to-html#readme",
   "files": [
     "cli.js",
-  "libs/**",
-  "scripts/fetch-libs.js",
+    "libs/**",
     "README.md",
     "LICENSE"
   ],
@@ -40,7 +39,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "diff2html": "^3.4.52"
+    "diff2html": "^3.4.52",
+    "jsdom": "^26.1.0"
   },
   "devDependencies": {
     "prettier": "^3.6.2"

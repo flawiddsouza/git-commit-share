@@ -47,7 +47,25 @@ npx git-commit-to-html abc1234
 ```
 
 Tips:
+
 - Pin a version for reproducibility: `npx git-commit-to-html@1`
 - Works inside any git repo with commits and a clean-enough working tree.
 
 The tool will create an HTML file named `commit-<hash>-diff.html` in the current directory, containing a side-by-side diff view of the changes.
+
+## Static mode (no JavaScript)
+
+Add `--static` to generate a fully static HTML file that includes the diff rendered server-side and contains no JavaScript. This is useful for strict environments or email attachments.
+
+Examples:
+
+```bash
+# Last commit, fully static
+git-commit-to-html --static
+
+# Specific commit, fully static
+git-commit-to-html abc1234 --static
+
+# With npx
+npx git-commit-to-html --static
+```
