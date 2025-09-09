@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import fs from 'fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { execSync } from 'child_process'
 
 function getLastCommitHash() {
@@ -58,10 +60,41 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
 }
 
+// Resolve libs directory relative to this file so it works when installed globally
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const libsDir = path.resolve(__dirname, 'libs')
+
+function readLibRequired(file) {
+  const p = path.join(libsDir, file)
+  try {
+    return fs.readFileSync(p, 'utf8')
+  } catch (e) {
+    console.error(
+      `Missing required library: ${file} in ${libsDir}.\n` +
+        `Run: npm run fetch:libs\n` +
+        `or:  node ./scripts/fetch-libs.js`
+    )
+    process.exit(1)
+  }
+}
+
+function safeInline(content, kind) {
+  if (!content) return ''
+  if (kind === 'script') return content.replace(/<\/script>/gi, '<\\/script>')
+  if (kind === 'style') return content.replace(/<\/style>/gi, '<\\/style>')
+  return content
+}
+
 function generateHtml(commit, commitMessage, diffOutput) {
   // Escape the diff output for use in JavaScript string
   const escapedDiff = diffOutput.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')
   const escapedMessage = escapeHtml(commitMessage)
+
+  // Load required local libs (must exist)
+  const cssHighlight = readLibRequired('highlightjs-github.min.css')
+  const cssDiff2Html = readLibRequired('diff2html.min.css')
+  const jsDiff2Html = readLibRequired('diff2html-ui.min.js')
 
   return `
 <!DOCTYPE html>
@@ -70,8 +103,8 @@ function generateHtml(commit, commitMessage, diffOutput) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Commit ${commit} Diff</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+  <style>${safeInline(cssHighlight, 'style')}</style>
+  <style>${safeInline(cssDiff2Html, 'style')}</style>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -97,8 +130,7 @@ function generateHtml(commit, commitMessage, diffOutput) {
   <h1>Changes in Commit ${commit}</h1>
   <div class="commit-meta" id="commit-message">${escapedMessage || 'No commit message'}</div>
   <div id="diff-container"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+  <script>${safeInline(jsDiff2Html, 'script')}</script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const diffString = '${escapedDiff}'

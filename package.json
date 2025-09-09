@@ -7,7 +7,9 @@
     "git-commit-to-html": "cli.js"
   },
   "scripts": {
-    "format": "prettier --write ."
+  "format": "prettier --write .",
+  "fetch:libs": "node ./scripts/fetch-libs.js",
+  "postinstall": "node ./scripts/fetch-libs.js"
   },
   "keywords": [
     "git",
@@ -29,6 +31,8 @@
   "homepage": "https://github.com/flawiddsouza/git-commit-to-html#readme",
   "files": [
     "cli.js",
+  "libs/**",
+  "scripts/fetch-libs.js",
     "README.md",
     "LICENSE"
   ],
